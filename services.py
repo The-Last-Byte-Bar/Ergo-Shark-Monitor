@@ -25,10 +25,7 @@ class TransactionAnalyzer:
 
     @staticmethod
     def extract_transaction_details(tx: Dict, address: str) -> Transaction:
-        """
-        Extract detailed transaction information including value transfers,
-        token movements, and fees.
-        """
+        """Extract detailed transaction information including value transfers and token movements."""
         inputs = tx.get('inputs', [])
         outputs = tx.get('outputs', [])
         
@@ -39,124 +36,96 @@ class TransactionAnalyzer:
         # Determine transaction type
         tx_type = TransactionAnalyzer.determine_transaction_type(tx, address)
         
-        # Calculate actual value transfer (excluding change boxes)
+        # Calculate value changes with proper signs
+        input_value = sum(box.get('value', 0) / 1e9 for box in our_input_boxes)
+        output_value = sum(box.get('value', 0) / 1e9 for box in our_output_boxes)
+        
+        # Calculate net value change with proper sign
         if tx_type == "Out":
-            # For outgoing, sum all outputs to other addresses (excluding miner fee)
-            value = -sum(
-                out.get('value', 0) / 1e9 
-                for out in outputs 
-                if out.get('address') != address and out.get('address') != "Ergo Platform (Miner Fee)"
-            )
+            # For outgoing, value should be negative (we're spending)
+            value = -(input_value - output_value)
         elif tx_type == "In":
-            # For incoming, sum all outputs to our address
-            value = sum(
-                out.get('value', 0) / 1e9 
-                for out in outputs 
-                if out.get('address') == address
-            )
+            # For incoming, value should be positive (we're receiving)
+            value = output_value
         else:  # Mixed
-            # For mixed, calculate net value change
-            total_in = sum(box.get('value', 0) / 1e9 for box in our_input_boxes)
-            total_out = sum(box.get('value', 0) / 1e9 for box in our_output_boxes)
-            value = total_out - total_in
-
-        # Calculate miner fee from the designated fee box
-        miner_fee_boxes = [
-            out for out in outputs 
+            # For mixed, calculate net change (positive if receiving more than sending)
+            value = output_value - input_value
+        
+        # Calculate miner fee
+        fee = sum(
+            out.get('value', 0) / 1e9 
+            for out in outputs 
             if out.get('address') == "Ergo Platform (Miner Fee)"
-        ]
-        fee = sum(box.get('value', 0) / 1e9 for box in miner_fee_boxes)
+        )
         
-        # Find the main counterparty (excluding change addresses and miner fee)
-        counterparty = None
-        if tx_type == "Out":
-            non_change_outputs = [
-                out for out in outputs 
-                if out.get('address') != address and 
-                out.get('address') != "Ergo Platform (Miner Fee)"
-            ]
-            if non_change_outputs:
-                counterparty = non_change_outputs[0].get('address')
-        elif tx_type == "In":
-            non_self_inputs = [inp for inp in inputs if inp.get('address') != address]
-            if non_self_inputs:
-                counterparty = non_self_inputs[0].get('address')
+        # Find counterparties (could be multiple in mixed transactions)
+        from_addresses = set()
+        to_addresses = set()
         
-        # Extract token movements
+        if tx_type in ["Out", "Mixed"]:
+            # Add non-change output addresses
+            for out in outputs:
+                out_address = out.get('address')
+                if (out_address and 
+                    out_address != address and 
+                    out_address != "Ergo Platform (Miner Fee)"):
+                    to_addresses.add(out_address)
+        
+        if tx_type in ["In", "Mixed"]:
+            # Add input addresses
+            for inp in inputs:
+                inp_address = inp.get('address')
+                if inp_address and inp_address != address:
+                    from_addresses.add(inp_address)
+        
+        # Format the addresses
+        from_address = ', '.join(addr[:10] + '...' + addr[-4:] for addr in from_addresses) if from_addresses else ''
+        to_address = ', '.join(addr[:10] + '...' + addr[-4:] for addr in to_addresses) if to_addresses else ''
+        
+        # Track token movements with proper signs
+        token_changes = {}
+        
+        # Process input tokens (negative for our inputs)
+        for box in our_input_boxes:
+            for asset in box.get('assets', []):
+                token_id = asset.get('tokenId')
+                amount = asset.get('amount', 0)
+                token_changes[token_id] = token_changes.get(token_id, 0) - amount
+        
+        # Process output tokens (positive for our outputs)
+        for box in our_output_boxes:
+            for asset in box.get('assets', []):
+                token_id = asset.get('tokenId')
+                amount = asset.get('amount', 0)
+                token_changes[token_id] = token_changes.get(token_id, 0) + amount
+        
+        # Create Token objects for non-zero changes
         tokens = []
-        if tx_type == "Out":
-            # Track tokens sent to other addresses (excluding change boxes)
-            for output in outputs:
-                if output.get('address') != address and output.get('address') != "Ergo Platform (Miner Fee)":
-                    for asset in output.get('assets', []):
-                        tokens.append(Token(
-                            token_id=asset.get('tokenId'),
-                            amount=-asset.get('amount'),  # Negative for outgoing
-                            name=asset.get('name')
-                        ))
-        elif tx_type == "In":
-            # Track tokens received in our output boxes
-            for output in our_output_boxes:
-                for asset in output.get('assets', []):
-                    tokens.append(Token(
-                        token_id=asset.get('tokenId'),
-                        amount=asset.get('amount'),
-                        name=asset.get('name')
-                    ))
-        else:  # Mixed
-            # Calculate net token changes
-            input_tokens = {}
-            output_tokens = {}
-            
-            # Track input tokens
-            for box in our_input_boxes:
-                for asset in box.get('assets', []):
-                    token_id = asset.get('tokenId')
-                    input_tokens[token_id] = input_tokens.get(token_id, 0) + asset.get('amount', 0)
-            
-            # Track output tokens
-            for box in our_output_boxes:
-                for asset in box.get('assets', []):
-                    token_id = asset.get('tokenId')
-                    output_tokens[token_id] = output_tokens.get(token_id, 0) + asset.get('amount', 0)
-            
-            # Calculate net token changes
-            all_token_ids = set(list(input_tokens.keys()) + list(output_tokens.keys()))
-            for token_id in all_token_ids:
-                net_amount = output_tokens.get(token_id, 0) - input_tokens.get(token_id, 0)
-                if net_amount != 0:
-                    # Find token name from any box containing this token
-                    token_name = None
-                    for out in outputs:
-                        for asset in out.get('assets', []):
-                            if asset.get('tokenId') == token_id:
-                                token_name = asset.get('name')
-                                break
-                        if token_name:
+        for token_id, amount in token_changes.items():
+            if amount != 0:
+                # Find token name from any box containing this token
+                token_name = None
+                for box in outputs + inputs:
+                    for asset in box.get('assets', []):
+                        if asset.get('tokenId') == token_id:
+                            token_name = asset.get('name')
                             break
-                    
-                    tokens.append(Token(
-                        token_id=token_id,
-                        amount=net_amount,
-                        name=token_name
-                    ))
+                    if token_name:
+                        break
+                
+                tokens.append(Token(
+                    token_id=token_id,
+                    amount=amount,
+                    name=token_name
+                ))
         
-        # Format addresses for display
-        from_address = inputs[0].get('address', '') if inputs else ''
-        if from_address:
-            from_address = f"{from_address[:10]}...{from_address[-4:]}"
-        
-        to_address = counterparty or ''
-        if to_address:
-            to_address = f"{to_address[:10]}...{to_address[-4:]}"
-
         # Determine transaction status
         is_mempool = tx.get('mempool', False)
         status = "Pending" if is_mempool else "Confirmed"
         
         return Transaction(
             tx_type=tx_type,
-            value=value,
+            value=value,  # Now properly signed
             fee=fee,
             from_address=from_address,
             to_address=to_address,

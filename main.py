@@ -19,7 +19,9 @@ def setup_logging():
 async def main():
     setup_logging()
     
-    explorer_client = ExplorerClient("https://api.ergoplatform.com/api/v1")
+    explorer_client = ExplorerClient("https://api.ergoplatform.com/api/v1",
+                                    max_retries=5,
+                                    retry_delay=3.0)
     handlers = [LogHandler()]
     
     monitor = ErgoTransactionMonitor(explorer_client, handlers)
