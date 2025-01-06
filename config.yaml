@@ -9,7 +9,7 @@ monitoring:
   hours_lookback: 30
 
 telegram:
-  bot_token: "7748888184:AAF-MQjY4PVhRsELSRhB7uLaUqeeUcIQRr0"
+  bot_token: ""
   # Default chat_id for general notifications (optional)
   default_chat_id: "" # 
   default_topic_id: ""  # null means no specific topic
