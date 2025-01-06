@@ -36,20 +36,20 @@ telegram:
 #-----------------------------------------------
 addresses:
   # Example wallet with topic-specific notifications
-  - address: "9fMPVc6bYFskvThC623vFVVHF6dz5UidYxNhrcGxgzHGKqYWRB7"
+  - address: "9f3LJK8jvRD76PvTkCZ3pwdpy6B1gmFMWKGKBaMY2dE4Hou3DDz"
     nickname: "Main Wallet"
     telegram_destinations:
       - chat_id: "CHAT_ID_HERE"
         topic_id: 12345  # Optional: specific topic ID for forum channels
 
   # Example for a dApp or smart contract
-  - address: "9f3AaAirSTGYKWqDcw8hEa4Pk4hYiS96VC3Kpcr7CKTuqTiwjCy"
+  - address: "9f3LJK8jvRD76PvTkCZ3pwdpy6B1gmFMWKGKBaMY2dE4Hou3DDz"
     nickname: "Trading Bot"
     telegram_destinations:
       - chat_id: "CHAT_ID_HERE"
 
   # Example for a mining address
-  - address: "9hxEvxV6BqPJmWDesy8P1kFoXeQ3wF9ZGxvjak6TAiezr5tu4Sc"
+  - address: "9f3LJK8jvRD76PvTkCZ3pwdpy6B1gmFMWKGKBaMY2dE4Hou3DDz"
     nickname: "Mining Wallet"
     telegram_destinations:
       - chat_id: "CHAT_ID_HERE"
