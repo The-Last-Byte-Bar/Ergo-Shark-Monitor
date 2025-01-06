@@ -1,0 +1,10 @@
+# prometheus.yml
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'ergo_monitor'
+    static_configs:
+      - targets: ['ergo-monitor:8008']
+    metrics_path: /metrics
