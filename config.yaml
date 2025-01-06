@@ -1,0 +1,22 @@
+# config.yaml
+explorer:
+  url: "https://api.ergoplatform.com/api/v1"
+  max_retries: 5
+  retry_delay: 3.0
+
+monitoring:
+  check_interval: 15  # seconds
+  hours_lookback: 30
+
+telegram:
+  bot_token: "7748888184:AAF-MQjY4PVhRsELSRhB7uLaUqeeUcIQRr0"
+  # Default chat_id for general notifications (optional)
+  default_chat_id: "" # 
+  default_topic_id: ""  # null means no specific topic
+
+addresses:
+  - address: "9fE5o7913CKKe6wvNgM11vULjTuKiopPcvCaj7t2zcJWXM2gcLu"
+    nickname: "Storage Rent"
+    telegram_destinations:
+      - chat_id: ""
+        topic_id:  

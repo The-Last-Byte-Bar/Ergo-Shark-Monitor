@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  ergo-monitor:
+    build: .
+    container_name: ergo-monitor
+    volumes:
+      - ./config.yaml:/app/config.yaml
+      - ./logs:/app/logs
+    restart: unless-stopped
+    environment:
+      - TZ=UTC  # Set your preferred timezone
+    # You can add environment variables if needed
+    # environment:
+    #   - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
