@@ -173,5 +173,5 @@ cython_debug/
 
 # Configuration files (protect sensitive data)
 config.yaml
-config.*.yaml
-!config.yaml.sample
+
+
