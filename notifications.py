@@ -14,35 +14,33 @@ class LogHandler(TransactionHandler):
         self.logger = logging.getLogger(self.__class__.__name__)
 
     async def handle_transaction(self, address: str, transaction: Transaction, monitor: ErgoTransactionMonitor) -> None:
+        """Handle transaction notification without balance information"""
         tx_direction = "Received" if transaction.value > 0 else "Sent" if transaction.value < 0 else "Mixed"
-        
-        # Get wallet nickname from the address info if available
         wallet_name = next((info.nickname for info in monitor.watched_addresses.values() if info.address == address), address[:8])
         
         message = [
             f"=== {wallet_name} Transaction ===",
             f"Type: {tx_direction}",
             f"Block: {transaction.block}",
-            # Show value with sign to indicate direction
+            f"Status: {transaction.status}",
             f"Amount: {transaction.value:+.8f} ERG",
-            f"Fee: {transaction.fee:.8f} ERG"
         ]
+        
+        if transaction.fee > 0:
+            message.append(f"Fee: {transaction.fee:.8f} ERG")
         
         if transaction.from_address:
             message.append(f"From: {transaction.from_address}")
         if transaction.to_address:
             message.append(f"To: {transaction.to_address}")
             
-        message.extend([
-            f"Status: {transaction.status}",
-            f"Tx ID: {transaction.tx_id}"
-        ])
-        
         if transaction.tokens:
             message.append("Tokens:")
             for token in sorted(transaction.tokens, key=lambda x: abs(x.amount), reverse=True):
                 token_name = token.name or f"[{token.token_id[:12]}...]"
                 message.append(f"  {token.amount:+} {token_name}")
+        
+        message.append(f"Tx ID: {transaction.tx_id}")
         
         self.logger.info("\n".join(message) + "\n")
 
@@ -99,25 +97,27 @@ class MultiTelegramHandler(TransactionHandler):
         return destinations
 
     async def handle_transaction(self, address: str, transaction: Transaction, monitor: ErgoTransactionMonitor) -> None:
+        """Handle Telegram transaction notification without balance information"""
         tx_direction = "Received" if transaction.value > 0 else "Sent" if transaction.value < 0 else "Mixed"
         wallet_name = next((info.nickname for info in monitor.watched_addresses.values() if info.address == address), address[:8])
         
         message = [
             f"🔄 *{wallet_name} Transaction*",
             f"Type: {tx_direction}",
-            f"Block: `{transaction.block}`",
-            f"Amount: `{transaction.value:+.8f}` ERG",
+            f"Status: {'⏳' if transaction.status == 'Pending' else '✅'} {transaction.status}",
+            f"Amount: `{transaction.value:+.8f}` ERG"
         ]
+        
+        if transaction.block:
+            message.append(f"Block: `{transaction.block}`")
+        
+        if transaction.fee > 0:
+            message.append(f"Fee: `{transaction.fee:.8f}` ERG")
         
         if transaction.from_address:
             message.append(f"From: `{transaction.from_address}`")
         if transaction.to_address:
             message.append(f"To: `{transaction.to_address}`")
-            
-        message.extend([
-            f"Status: {'⏳' if transaction.status == 'Pending' else '✅'} {transaction.status}",
-            f"[View Transaction](https://ergexplorer.com/transactions#{transaction.tx_id})"
-        ])
         
         if transaction.tokens:
             message.append("\n*Tokens:*")
@@ -125,6 +125,8 @@ class MultiTelegramHandler(TransactionHandler):
                 token_name = token.name or f"[{token.token_id[:12]}...]"
                 prefix = "+" if token.amount > 0 else ""
                 message.append(f"`{prefix}{token.amount}` {token_name}")
+        
+        message.append(f"\n[View Transaction](https://explorer.ergoplatform.com/en/transactions/{transaction.tx_id})")
 
         message_text = "\n".join(message)
         destinations = self.get_destinations_for_address(address)
@@ -136,7 +138,6 @@ class MultiTelegramHandler(TransactionHandler):
                     self.logger.error(f"Failed to send message to chat ID: {dest.chat_id}")
             except Exception as e:
                 self.logger.error(f"Error sending message to chat ID {dest.chat_id}: {str(e)}")
-
     async def send_message(self, text: str, destination: TelegramDestination) -> bool:
         try:
             await self.init_session()

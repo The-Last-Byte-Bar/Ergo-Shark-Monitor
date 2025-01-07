@@ -1,8 +1,8 @@
 # models.py
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 @dataclass
 class Token:
@@ -29,3 +29,23 @@ class AddressInfo:
     nickname: str
     last_check: datetime
     last_height: int
+
+@dataclass
+class TokenBalance:
+    token_id: str
+    amount: int
+    name: Optional[str] = None
+
+@dataclass
+class WalletBalance:
+    erg_balance: float = 0.0
+    tokens: Dict[str, TokenBalance] = field(default_factory=dict)
+
+@dataclass
+class AddressInfo:
+    address: str
+    nickname: str
+    last_check: datetime
+    last_height: int
+    balance: WalletBalance = field(default_factory=WalletBalance)
+    report_balance: bool = True 

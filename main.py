@@ -80,16 +80,25 @@ async def main():
     # Initialize monitor
     monitor = ErgoTransactionMonitor(explorer_client, handlers)
     
-    # Add addresses from config
+    # Initialize monitor with configured daily report hour
     monitoring_config = config.get('monitoring', {})
     hours_lookback = monitoring_config.get('hours_lookback', 1)
+    daily_report_hour = monitoring_config.get('daily_report_hour', 12)
     
+    monitor = ErgoTransactionMonitor(
+        explorer_client, 
+        handlers,
+        daily_report_hour=daily_report_hour
+    )
+    
+    # Add addresses from config with balance reporting configuration
     for addr_config in config.get('addresses', []):
         try:
             monitor.add_address(
                 addr_config['address'],
                 addr_config.get('nickname'),
-                hours_lookback=hours_lookback
+                hours_lookback=hours_lookback,
+                report_balance=addr_config.get('report_balance', True)  # Default to True if not specified
             )
         except Exception as e:
             logger.error(f"Error adding address {addr_config.get('nickname', 'unknown')}: {str(e)}")

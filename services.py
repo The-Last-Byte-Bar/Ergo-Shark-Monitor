@@ -1,9 +1,9 @@
 # services.py
 from __future__ import annotations
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
 import logging
 from datetime import datetime
-from models import Token, Transaction
+from models import Token, Transaction, TokenBalance, WalletBalance
 
 class TransactionAnalyzer:
     @staticmethod
@@ -79,8 +79,8 @@ class TransactionAnalyzer:
                     from_addresses.add(inp_address)
         
         # Format the addresses
-        from_address = ', '.join(addr[:10] + '...' + addr[-4:] for addr in from_addresses) if from_addresses else ''
-        to_address = ', '.join(addr[:10] + '...' + addr[-4:] for addr in to_addresses) if to_addresses else ''
+        from_address = ', '.join(addr[:10] + '...' + addr[-4:] for addr in from_addresses) if from_addresses else None
+        to_address = ', '.join(addr[:10] + '...' + addr[-4:] for addr in to_addresses) if to_addresses else None
         
         # Track token movements with proper signs
         token_changes = {}
@@ -125,7 +125,7 @@ class TransactionAnalyzer:
         
         return Transaction(
             tx_type=tx_type,
-            value=value,  # Now properly signed
+            value=value,
             fee=fee,
             from_address=from_address,
             to_address=to_address,
@@ -135,3 +135,50 @@ class TransactionAnalyzer:
             timestamp=datetime.fromtimestamp(tx.get('timestamp', 0) / 1000),
             status=status
         )
+
+class BalanceTracker:
+    @staticmethod
+    async def get_current_balance(explorer_client: ExplorerClient, address: str) -> WalletBalance:
+        """Get current balance for an address from unspent boxes"""
+        try:
+            # Get unspent boxes
+            url = f"{explorer_client.explorer_url}/boxes/unspent/byAddress/{address}"
+            unspent_boxes = await explorer_client._make_request(url)
+            
+            if not isinstance(unspent_boxes, list):
+                unspent_boxes = unspent_boxes.get('items', []) if unspent_boxes else []
+            
+            total_erg = 0.0
+            token_balances: Dict[str, TokenBalance] = {}
+            
+            # Calculate balances from each box
+            for box in unspent_boxes:
+                # Add ERG value
+                total_erg += box.get('value', 0) / 1e9
+                
+                # Process tokens in the box
+                for asset in box.get('assets', []):
+                    token_id = asset.get('tokenId')
+                    if token_id:
+                        amount = asset.get('amount', 0)
+                        name = asset.get('name')
+                        
+                        if token_id in token_balances:
+                            token_balances[token_id].amount += amount
+                            if name and not token_balances[token_id].name:
+                                token_balances[token_id].name = name
+                        else:
+                            token_balances[token_id] = TokenBalance(
+                                token_id=token_id,
+                                amount=amount,
+                                name=name
+                            )
+            
+            return WalletBalance(
+                erg_balance=total_erg,
+                tokens=token_balances
+            )
+            
+        except Exception as e:
+            logging.error(f"Error getting balance for {address}: {str(e)}")
+            return WalletBalance()

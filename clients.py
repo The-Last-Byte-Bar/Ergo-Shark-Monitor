@@ -43,6 +43,9 @@ class ExplorerClient(BaseClient):
         
     async def _make_request(self, url: str, params: Dict = None) -> Dict:
         """Make a request with retry logic and rate limiting"""
+        if not self.session:
+            await self.init_session()
+            
         for attempt in range(self.max_retries):
             try:
                 # Implement rate limiting
@@ -56,12 +59,20 @@ class ExplorerClient(BaseClient):
                     self.last_request_time = time.time()
                     
                     if response.status == 200:
-                        return await response.json()
+                        try:
+                            data = await response.json()
+                            # Ensure we never return None
+                            return data if data is not None else {}
+                        except Exception as e:
+                            self.logger.error(f"Failed to parse JSON response: {str(e)}")
+                            return {}
                     elif response.status == 429:  # Too Many Requests
                         retry_after = float(response.headers.get('Retry-After', self.retry_delay))
+                        self.logger.warning(f"Rate limited, waiting {retry_after} seconds")
                         await asyncio.sleep(retry_after)
                         continue
                     elif response.status >= 500:  # Server error
+                        self.logger.warning(f"Server error {response.status}, attempt {attempt + 1}/{self.max_retries}")
                         await asyncio.sleep(self.retry_delay)
                         continue
                     else:
@@ -74,28 +85,28 @@ class ExplorerClient(BaseClient):
                     await asyncio.sleep(self.retry_delay * (attempt + 1))  # Exponential backoff
                     continue
                 else:
-                    raise
+                    self.logger.error(f"Connection error: {str(e)}")
+                    await asyncio.sleep(self.retry_delay)
             except Exception as e:
                 self.logger.error(f"Request failed: {str(e)}")
                 await asyncio.sleep(self.retry_delay)
                 if attempt == self.max_retries - 1:
-                    raise
+                    return {}  # Return empty dict on final attempt
 
         return {}  # Return empty dict if all retries failed
 
     async def get_address_transactions(self, address: str, offset: int = 0) -> List[Dict]:
-        await self.init_session()
         try:
             transactions = []
             
-            # Get mempool transactions with retry logic
+            # Get mempool transactions
             mempool_url = f"{self.explorer_url}/mempool/transactions/byAddress/{address}"
             mempool_data = await self._make_request(mempool_url)
             
-            # Handle both list and dict response formats
+            # Handle both list and dict response formats safely
             mempool_items = []
-            if isinstance(mempool_data, dict) and 'items' in mempool_data:
-                mempool_items = mempool_data['items']
+            if isinstance(mempool_data, dict):
+                mempool_items = mempool_data.get('items', [])
             elif isinstance(mempool_data, list):
                 mempool_items = mempool_data
             
@@ -105,7 +116,7 @@ class ExplorerClient(BaseClient):
                     formatted_tx = self._format_mempool_transaction(tx)
                     transactions.append(formatted_tx)
             
-            # Get confirmed transactions with retry logic
+            # Get confirmed transactions
             transactions_url = f"{self.explorer_url}/addresses/{address}/transactions"
             params = {
                 'offset': offset,
@@ -114,8 +125,8 @@ class ExplorerClient(BaseClient):
             }
             
             confirmed_data = await self._make_request(transactions_url, params)
-            if isinstance(confirmed_data, dict) and 'items' in confirmed_data:
-                transactions.extend(confirmed_data['items'])
+            if isinstance(confirmed_data, dict):
+                transactions.extend(confirmed_data.get('items', []))
             
             return transactions
 
@@ -125,6 +136,9 @@ class ExplorerClient(BaseClient):
 
     def _format_mempool_transaction(self, tx: Dict) -> Dict:
         """Format mempool transaction to match confirmed transaction structure"""
+        if not isinstance(tx, dict):
+            return {}
+            
         formatted_tx = {
             'id': tx.get('id'),
             'inputs': tx.get('inputs', []),
