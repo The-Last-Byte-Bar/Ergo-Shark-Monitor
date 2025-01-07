@@ -169,3 +169,9 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+
+# Configuration files (protect sensitive data)
+config.yaml
+config.*.yaml
+!config.yaml.sample

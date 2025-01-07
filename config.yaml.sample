@@ -1,0 +1,37 @@
+# Explorer configuration
+explorer:
+  url: "https://api.ergoplatform.com/api/v1"
+  max_retries: 5
+  retry_delay: 3.0
+
+# Prometheus configuration (optional)
+prometheus:
+  port: 8008
+
+# Monitoring configuration
+monitoring:
+  hours_lookback: 1
+  check_interval: 15
+
+# Telegram configuration
+telegram:
+  # Get your bot token from @BotFather
+  bot_token: "YOUR_BOT_TOKEN_HERE"
+  
+  # Default chat_id for general notifications (optional)
+  default_chat_id: "YOUR_DEFAULT_CHAT_ID"  # e.g., "-100123456789"
+  default_topic_id: null  # null means no specific topic
+
+# Addresses to monitor
+addresses:
+  - address: "YOUR_ERGO_ADDRESS_1"
+    nickname: "Main Wallet"
+    telegram_destinations:
+      - chat_id: "CHAT_ID_1"
+        topic_id: 1  # Optional, for forum channels
+
+  - address: "YOUR_ERGO_ADDRESS_2"
+    nickname: "Trading Bot"
+    telegram_destinations:
+      - chat_id: "CHAT_ID_2"
+        topic_id: 2  # Optional, for forum channels
