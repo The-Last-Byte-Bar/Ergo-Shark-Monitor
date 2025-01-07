@@ -14,7 +14,7 @@ class LogHandler(TransactionHandler):
         self.logger = logging.getLogger(self.__class__.__name__)
 
     async def handle_transaction(self, address: str, transaction: Transaction, monitor: ErgoTransactionMonitor) -> None:
-        """Handle transaction notification without balance information"""
+        """Handle transaction notification with decimal-aware token amounts"""
         tx_direction = "Received" if transaction.value > 0 else "Sent" if transaction.value < 0 else "Mixed"
         wallet_name = next((info.nickname for info in monitor.watched_addresses.values() if info.address == address), address[:8])
         
@@ -38,7 +38,8 @@ class LogHandler(TransactionHandler):
             message.append("Tokens:")
             for token in sorted(transaction.tokens, key=lambda x: abs(x.amount), reverse=True):
                 token_name = token.name or f"[{token.token_id[:12]}...]"
-                message.append(f"  {token.amount:+} {token_name}")
+                formatted_amount = token.get_formatted_amount()
+                message.append(f"  {'+' if token.amount > 0 else ''}{formatted_amount} {token_name}")
         
         message.append(f"Tx ID: {transaction.tx_id}")
         
@@ -123,8 +124,10 @@ class MultiTelegramHandler(TransactionHandler):
             message.append("\n*Tokens:*")
             for token in sorted(transaction.tokens, key=lambda x: abs(x.amount), reverse=True):
                 token_name = token.name or f"[{token.token_id[:12]}...]"
+                # Use formatted amount with decimals
+                formatted_amount = token.get_formatted_amount()
                 prefix = "+" if token.amount > 0 else ""
-                message.append(f"`{prefix}{token.amount}` {token_name}")
+                message.append(f"`{prefix}{formatted_amount}` {token_name}")
         
         message.append(f"\n[View Transaction](https://explorer.ergoplatform.com/en/transactions/{transaction.tx_id})")
 

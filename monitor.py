@@ -7,7 +7,7 @@ import logging
 from models import AddressInfo, Transaction, WalletBalance, TokenBalance
 from clients import ExplorerClient
 from services import TransactionAnalyzer, BalanceTracker
-from notifications import TransactionHandler
+from notifications import TransactionHandler, MultiTelegramHandler
 
 class ErgoTransactionMonitor:
     def __init__(
@@ -24,7 +24,6 @@ class ErgoTransactionMonitor:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.last_daily_report = None
         self.daily_report_hour = daily_report_hour
-
 
     async def update_balances(self):
         """Update balances for all watched addresses"""
@@ -75,7 +74,8 @@ class ErgoTransactionMonitor:
                     )
                     for token in sorted_tokens:
                         token_name = token.name or f"[{token.token_id[:12]}...]"
-                        message.append(f"`{token.amount:>12}` {token_name}")
+                        formatted_amount = token.get_formatted_amount()
+                        message.append(f"`{formatted_amount:>12}` {token_name}")
                 message.append("")  # Add blank line between addresses
             
             # Send to all handlers
@@ -94,7 +94,6 @@ class ErgoTransactionMonitor:
             
         except Exception as e:
             self.logger.error(f"Error sending daily balance report: {str(e)}")
-
 
     async def check_transactions(self, address: str) -> List[Transaction]:
         address_info = self.watched_addresses[address]
@@ -126,7 +125,12 @@ class ErgoTransactionMonitor:
                     tx_time = datetime.fromtimestamp(tx.get('timestamp', 0) / 1000)
                     
                     if tx_time > address_info.last_check:
-                        tx_details = TransactionAnalyzer.extract_transaction_details(tx, address)
+                        # Pass explorer_client to extract_transaction_details
+                        tx_details = await TransactionAnalyzer.extract_transaction_details(
+                            tx, 
+                            address,
+                            self.explorer_client
+                        )
                         
                         if abs(tx_details.value) > 0.0001 or tx_details.tokens:
                             new_transactions.append(tx_details)
@@ -153,7 +157,8 @@ class ErgoTransactionMonitor:
                         [tx.get('height', 0) for tx in transactions[:1]] 
                         or [address_info.last_height]
                     ),
-                    balance=address_info.balance  # Preserve the balance
+                    balance=address_info.balance,
+                    report_balance=address_info.report_balance
                 )
             
         except Exception as e:
@@ -211,9 +216,10 @@ class ErgoTransactionMonitor:
                                                 
                                                 if original_tx_data:
                                                     # Generate mirrored transaction for the other address
-                                                    mirrored_tx = TransactionAnalyzer.extract_transaction_details(
+                                                    mirrored_tx = await TransactionAnalyzer.extract_transaction_details(
                                                         original_tx_data,
-                                                        other_addr
+                                                        other_addr,
+                                                        self.explorer_client
                                                     )
                                                     
                                                     # Notify handlers about the mirrored transaction

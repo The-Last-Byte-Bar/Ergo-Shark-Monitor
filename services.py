@@ -1,9 +1,38 @@
 # services.py
 from __future__ import annotations
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple, Optional, DefaultDict
+from collections import defaultdict
 import logging
 from datetime import datetime
 from models import Token, Transaction, TokenBalance, WalletBalance
+
+class TokenInfoCache:
+    """Cache for token information to avoid repeated API calls"""
+    _cache: Dict[str, Dict] = {}
+    _logger = logging.getLogger("TokenInfoCache")
+
+    @classmethod
+    async def get_token_info(cls, explorer_client: ExplorerClient, token_id: str) -> Dict:
+        """Get token information with caching"""
+        if token_id not in cls._cache:
+            try:
+                url = f"{explorer_client.explorer_url}/tokens/{token_id}"
+                token_info = await explorer_client._make_request(url)
+                if token_info:
+                    cls._cache[token_id] = token_info
+                else:
+                    cls._cache[token_id] = {"decimals": 0}  # Default if not found
+            except Exception as e:
+                cls._logger.error(f"Error fetching token info for {token_id}: {str(e)}")
+                cls._cache[token_id] = {"decimals": 0}  # Default on error
+        
+        return cls._cache[token_id]
+
+    @classmethod
+    async def get_token_decimals(cls, explorer_client: ExplorerClient, token_id: str) -> int:
+        """Get token decimals with caching"""
+        token_info = await cls.get_token_info(explorer_client, token_id)
+        return token_info.get("decimals", 0)
 
 class TransactionAnalyzer:
     @staticmethod
@@ -24,7 +53,7 @@ class TransactionAnalyzer:
         return "Unknown"
 
     @staticmethod
-    def extract_transaction_details(tx: Dict, address: str) -> Transaction:
+    async def extract_transaction_details(tx: Dict, address: str, explorer_client: ExplorerClient) -> Transaction:
         """Extract detailed transaction information including value transfers and token movements."""
         inputs = tx.get('inputs', [])
         outputs = tx.get('outputs', [])
@@ -42,13 +71,10 @@ class TransactionAnalyzer:
         
         # Calculate net value change with proper sign
         if tx_type == "Out":
-            # For outgoing, value should be negative (we're spending)
             value = -(input_value - output_value)
         elif tx_type == "In":
-            # For incoming, value should be positive (we're receiving)
             value = output_value
         else:  # Mixed
-            # For mixed, calculate net change (positive if receiving more than sending)
             value = output_value - input_value
         
         # Calculate miner fee
@@ -58,12 +84,11 @@ class TransactionAnalyzer:
             if out.get('address') == "Ergo Platform (Miner Fee)"
         )
         
-        # Find counterparties (could be multiple in mixed transactions)
+        # Find counterparties
         from_addresses = set()
         to_addresses = set()
         
         if tx_type in ["Out", "Mixed"]:
-            # Add non-change output addresses
             for out in outputs:
                 out_address = out.get('address')
                 if (out_address and 
@@ -72,51 +97,48 @@ class TransactionAnalyzer:
                     to_addresses.add(out_address)
         
         if tx_type in ["In", "Mixed"]:
-            # Add input addresses
             for inp in inputs:
                 inp_address = inp.get('address')
                 if inp_address and inp_address != address:
                     from_addresses.add(inp_address)
         
-        # Format the addresses
+        # Format addresses
         from_address = ', '.join(addr[:10] + '...' + addr[-4:] for addr in from_addresses) if from_addresses else None
         to_address = ', '.join(addr[:10] + '...' + addr[-4:] for addr in to_addresses) if to_addresses else None
         
-        # Track token movements with proper signs
-        token_changes = {}
+        # Track token movements with decimals
+        token_changes: DefaultDict[str, Dict] = defaultdict(
+            lambda: {"amount": 0, "name": None, "decimals": None}
+        )
         
         # Process input tokens (negative for our inputs)
         for box in our_input_boxes:
             for asset in box.get('assets', []):
                 token_id = asset.get('tokenId')
                 amount = asset.get('amount', 0)
-                token_changes[token_id] = token_changes.get(token_id, 0) - amount
+                token_changes[token_id]["amount"] -= amount
+                if not token_changes[token_id]["name"]:
+                    token_changes[token_id]["name"] = asset.get('name')
         
         # Process output tokens (positive for our outputs)
         for box in our_output_boxes:
             for asset in box.get('assets', []):
                 token_id = asset.get('tokenId')
                 amount = asset.get('amount', 0)
-                token_changes[token_id] = token_changes.get(token_id, 0) + amount
+                token_changes[token_id]["amount"] += amount
+                if not token_changes[token_id]["name"]:
+                    token_changes[token_id]["name"] = asset.get('name')
         
-        # Create Token objects for non-zero changes
+        # Fetch decimals for all tokens and create Token objects
         tokens = []
-        for token_id, amount in token_changes.items():
-            if amount != 0:
-                # Find token name from any box containing this token
-                token_name = None
-                for box in outputs + inputs:
-                    for asset in box.get('assets', []):
-                        if asset.get('tokenId') == token_id:
-                            token_name = asset.get('name')
-                            break
-                    if token_name:
-                        break
-                
+        for token_id, info in token_changes.items():
+            if info["amount"] != 0:
+                decimals = await TokenInfoCache.get_token_decimals(explorer_client, token_id)
                 tokens.append(Token(
                     token_id=token_id,
-                    amount=amount,
-                    name=token_name
+                    amount=info["amount"],
+                    name=info["name"],
+                    decimals=decimals
                 ))
         
         # Determine transaction status
@@ -141,7 +163,6 @@ class BalanceTracker:
     async def get_current_balance(explorer_client: ExplorerClient, address: str) -> WalletBalance:
         """Get current balance for an address from unspent boxes"""
         try:
-            # Get unspent boxes
             url = f"{explorer_client.explorer_url}/boxes/unspent/byAddress/{address}"
             unspent_boxes = await explorer_client._make_request(url)
             
@@ -153,10 +174,9 @@ class BalanceTracker:
             
             # Calculate balances from each box
             for box in unspent_boxes:
-                # Add ERG value
                 total_erg += box.get('value', 0) / 1e9
                 
-                # Process tokens in the box
+                # Process tokens with decimals
                 for asset in box.get('assets', []):
                     token_id = asset.get('tokenId')
                     if token_id:
@@ -168,10 +188,13 @@ class BalanceTracker:
                             if name and not token_balances[token_id].name:
                                 token_balances[token_id].name = name
                         else:
+                            # Fetch token decimals when first encountering a token
+                            decimals = await TokenInfoCache.get_token_decimals(explorer_client, token_id)
                             token_balances[token_id] = TokenBalance(
                                 token_id=token_id,
                                 amount=amount,
-                                name=name
+                                name=name,
+                                decimals=decimals
                             )
             
             return WalletBalance(

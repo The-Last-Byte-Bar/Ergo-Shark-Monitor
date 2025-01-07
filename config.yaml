@@ -47,9 +47,10 @@ addresses:
         report_balance: true
 
   - address: "9grKhvEcJDb6xi1Za7GGNgcrWwQaoEAbeSKWPWju5NSPEwcqcn8"
-    nickname: "??"
+    nickname: "Rosen Heavy"
     telegram_destinations:
       - chat_id: "-1002326063811"
+        topic_id: 2
         
   - address: "9fuHCh7cvbWxMXdhNpjxAFVGCtP4W3yP6v7vVLPFYB4PR3NpyAL"
     nickname: "??"
