@@ -129,7 +129,7 @@ class MultiTelegramHandler(TransactionHandler):
                 prefix = "+" if token.amount > 0 else ""
                 message.append(f"`{prefix}{formatted_amount}` {token_name}")
         
-        message.append(f"\n[View Transaction](https://explorer.ergoplatform.com/en/transactions/{transaction.tx_id})")
+        message.append(f"\n[View Transaction](https://ergexplorer.com/transactions#{transaction.tx_id})")
 
         message_text = "\n".join(message)
         destinations = self.get_destinations_for_address(address)
