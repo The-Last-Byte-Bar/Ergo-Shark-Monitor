@@ -7,14 +7,14 @@ import logging
 from models import AddressInfo, Transaction, WalletBalance, TokenBalance
 from clients import ExplorerClient
 from services import TransactionAnalyzer, BalanceTracker
-from notifications import TransactionHandler, MultiTelegramHandler
+from notifications import TransactionHandler
 
 class ErgoTransactionMonitor:
     def __init__(
         self,
         explorer_client: ExplorerClient,
         transaction_handlers: List[TransactionHandler],
-        daily_report_hour: int = 12
+        daily_report_hour: int = 12  # Add this parameter
     ):
         self.explorer_client = explorer_client
         self.transaction_handlers = transaction_handlers
@@ -23,7 +23,7 @@ class ErgoTransactionMonitor:
         self.processed_confirmed_txs: Set[str] = set()
         self.logger = logging.getLogger(self.__class__.__name__)
         self.last_daily_report = None
-        self.daily_report_hour = daily_report_hour
+        self.daily_report_hour = daily_report_hour  # Store it as instance variable
 
     async def update_balances(self):
         """Update balances for all watched addresses"""
@@ -74,28 +74,24 @@ class ErgoTransactionMonitor:
                     )
                     for token in sorted_tokens:
                         token_name = token.name or f"[{token.token_id[:12]}...]"
-                        formatted_amount = token.get_formatted_amount()
-                        message.append(f"`{formatted_amount:>12}` {token_name}")
+                        message.append(f"`{token.amount:>12}` {token_name}")
                 message.append("")  # Add blank line between addresses
             
             # Send to all handlers
             for handler in self.transaction_handlers:
-                if isinstance(handler, MultiTelegramHandler):
-                    try:
-                        if handler.default_destination:
-                            await handler.send_message(
-                                "\n".join(message), 
-                                handler.default_destination
-                            )
-                    except Exception as e:
-                        self.logger.error(f"Failed to send daily report: {str(e)}")
-
+                await handler.handle_transaction(
+                    address="daily_report",  # Special address for daily report
+                    transaction=None,  # No transaction for daily report
+                    monitor=self
+                )
+            
             self.logger.info("Daily balance report sent successfully")
             
         except Exception as e:
             self.logger.error(f"Error sending daily balance report: {str(e)}")
 
     async def check_transactions(self, address: str) -> List[Transaction]:
+        """Check for new transactions for a specific address"""
         address_info = self.watched_addresses[address]
         new_transactions = []
 
@@ -125,12 +121,7 @@ class ErgoTransactionMonitor:
                     tx_time = datetime.fromtimestamp(tx.get('timestamp', 0) / 1000)
                     
                     if tx_time > address_info.last_check:
-                        # Pass explorer_client to extract_transaction_details
-                        tx_details = await TransactionAnalyzer.extract_transaction_details(
-                            tx, 
-                            address,
-                            self.explorer_client
-                        )
+                        tx_details = TransactionAnalyzer.extract_transaction_details(tx, address)
                         
                         if abs(tx_details.value) > 0.0001 or tx_details.tokens:
                             new_transactions.append(tx_details)
@@ -157,8 +148,7 @@ class ErgoTransactionMonitor:
                         [tx.get('height', 0) for tx in transactions[:1]] 
                         or [address_info.last_height]
                     ),
-                    balance=address_info.balance,
-                    report_balance=address_info.report_balance
+                    balance=address_info.balance  # Preserve the balance
                 )
             
         except Exception as e:
@@ -167,6 +157,7 @@ class ErgoTransactionMonitor:
         return new_transactions
 
     async def monitor_loop(self, check_interval: int = 60):
+        """Main monitoring loop"""
         self.logger.info("Starting monitoring loop...")
         
         try:
@@ -189,47 +180,9 @@ class ErgoTransactionMonitor:
                         
                         if transactions:
                             for tx in sorted(transactions, key=lambda x: x.timestamp):
-                                # Handle the main transaction
                                 for handler in self.transaction_handlers:
                                     await handler.handle_transaction(address, tx, self)
-                                
-                                # Check if we need to generate a mirrored notification for another watched address
-                                if tx.from_address or tx.to_address:
-                                    for other_addr, other_info in self.watched_addresses.items():
-                                        if other_addr != address:
-                                            # Format the address for comparison
-                                            other_addr_short = f"{other_addr[:10]}...{other_addr[-4:]}"
-                                            
-                                            # Check if the other address is involved in this transaction
-                                            if ((tx.from_address and other_addr_short in tx.from_address) or
-                                                (tx.to_address and other_addr_short in tx.to_address)):
-                                                
-                                                # Get the original transaction data
-                                                original_tx_data = None
-                                                for t in transactions:
-                                                    if t.tx_id == tx.tx_id:
-                                                        original_tx_data = next(
-                                                            t for t in await self.explorer_client.get_address_transactions(address)
-                                                            if t.get('id') == tx.tx_id
-                                                        )
-                                                        break
-                                                
-                                                if original_tx_data:
-                                                    # Generate mirrored transaction for the other address
-                                                    mirrored_tx = await TransactionAnalyzer.extract_transaction_details(
-                                                        original_tx_data,
-                                                        other_addr,
-                                                        self.explorer_client
-                                                    )
-                                                    
-                                                    # Notify handlers about the mirrored transaction
-                                                    for handler in self.transaction_handlers:
-                                                        await handler.handle_transaction(
-                                                            other_addr,
-                                                            mirrored_tx,
-                                                            self
-                                                        )
-                    
+                                    
                     except Exception as e:
                         self.logger.error(f"Error processing address {address}: {str(e)}")
                 
@@ -237,8 +190,13 @@ class ErgoTransactionMonitor:
         finally:
             await self.explorer_client.close_session()
             
-    def add_address(self, address: str, nickname: Optional[str] = None, 
-                   hours_lookback: int = 1, report_balance: bool = True):
+    def add_address(
+        self, 
+        address: str, 
+        nickname: Optional[str] = None, 
+        hours_lookback: int = 1, 
+        report_balance: bool = True
+    ):
         """Add address with optional balance reporting configuration"""
         if not address or len(address) < 40:
             raise ValueError(f"Invalid Ergo address format: {address}")
