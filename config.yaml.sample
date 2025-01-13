@@ -1,37 +1,105 @@
-# Explorer configuration
+# Nurse Shark Bot Configuration File
+# A vigilant monitoring system for the Ergo blockchain
+
+#-----------------------------------------------
+# Explorer Configuration
+#-----------------------------------------------
 explorer:
+  # Base URL for the Ergo Explorer API
   url: "https://api.ergoplatform.com/api/v1"
+  # Number of retry attempts for failed requests
   max_retries: 5
+  # Delay between retries in seconds
   retry_delay: 3.0
 
-# Prometheus configuration (optional)
-prometheus:
-  port: 8008
 
-# Monitoring configuration
+#-----------------------------------------------
+# Monitoring Settings
+#-----------------------------------------------
 monitoring:
-  hours_lookback: 1
+  # How often to check for new transactions (in seconds)
   check_interval: 15
+  # How many hours of history to look back when starting up
+  hours_lookback: 24
+  # Hour of day to send daily reports (0-23)
+  daily_report_hour: 12
 
-# Telegram configuration
+#-----------------------------------------------
+# Telegram Configuration
+#-----------------------------------------------
 telegram:
-  # Get your bot token from @BotFather
+  # Your Telegram bot token from @BotFather
   bot_token: "YOUR_BOT_TOKEN_HERE"
   
-  # Default chat_id for general notifications (optional)
-  default_chat_id: "YOUR_DEFAULT_CHAT_ID"  # e.g., "-100123456789"
-  default_topic_id: null  # null means no specific topic
+  # Default chat ID for all notifications
+  # Remove '-100' prefix, it will be added automatically
+  default_chat_id: "YOUR_DEFAULT_CHAT_ID"  # e.g., "123456789"
+  
+  # Default topic ID for forum channels (optional)
+  default_topic_id: null
 
-# Addresses to monitor
+#-----------------------------------------------
+# LLM Configuration (Claude)
+#-----------------------------------------------
+llm:
+  # Anthropic API key for Claude
+  api_key: "YOUR_ANTHROPIC_API_KEY"
+  
+  # Model configuration
+  model: "claude-3-opus-20240229"  # Options: claude-3-opus-20240229, claude-3-sonnet-20240229
+  max_tokens: 1000
+  temperature: 0.7
+  
+  # Analytics settings
+  default_lookback_days: 30
+  max_lookback_days: 90
+  rate_limit: 10  # Queries per user per hour
+
+#-----------------------------------------------
+# Price Service Configuration
+#-----------------------------------------------
+price_service:
+  # Update interval in minutes
+  cache_duration: 5
+  # Enable/disable debug mode (uses mock prices)
+  debug: false
+  # Custom token mappings (token_symbol: coingecko_id)
+  token_mappings:
+    ERG: "ergo"
+    RSN: "rosen-bridge"
+    SPECT: "spectrum-finance"
+    NETA: "neta"
+    SIGUSD: "sigusd"
+
+#-----------------------------------------------
+# Addresses to Monitor
+#-----------------------------------------------
 addresses:
+  # Example wallet with topic-specific notifications
   - address: "YOUR_ERGO_ADDRESS_1"
     nickname: "Main Wallet"
+    report_balance: true  # Include in daily balance reports
     telegram_destinations:
       - chat_id: "CHAT_ID_1"
         topic_id: 1  # Optional, for forum channels
 
+  # Example trading bot wallet
   - address: "YOUR_ERGO_ADDRESS_2"
     nickname: "Trading Bot"
+    report_balance: true
     telegram_destinations:
       - chat_id: "CHAT_ID_2"
         topic_id: 2  # Optional, for forum channels
+
+#-----------------------------------------------
+# Notes:
+# 1. All addresses should be valid Ergo addresses
+# 2. Nicknames help identify wallets in notifications
+# 3. Telegram chat_ids should be numbers without the '-100' prefix
+# 4. topic_id is optional and only needed for forum channels
+# 5. Multiple telegram_destinations can be specified per address
+# 6. The default_chat_id will receive notifications for addresses
+#    without specific telegram_destinations
+# 7. LLM features require a valid Anthropic API key
+# 8. Price service token mappings can be customized as needed
+#-----------------------------------------------
