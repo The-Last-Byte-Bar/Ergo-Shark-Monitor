@@ -91,6 +91,16 @@ addresses:
       - chat_id: "CHAT_ID_2"
         topic_id: 2  # Optional, for forum channels
 
+
+#-----------------------------------------------
+# Node
+#-----------------------------------------------
+node:
+  url: "http://0.0.0.0:9053"  # Update with your node URL
+  api_key: "your_api_key"     # Optional, if your node requires authentication
+  max_retries: 3
+  retry_delay: 1.0
+
 #-----------------------------------------------
 # Notes:
 # 1. All addresses should be valid Ergo addresses
