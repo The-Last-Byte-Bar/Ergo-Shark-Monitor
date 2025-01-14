@@ -180,6 +180,98 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Telegram for their Bot API
 - The Ergo community
 
+# Nurse Shark Bot - Ergo Blockchain Analytics
+
+## Example Queries
+
+The bot supports a variety of analytical queries about Ergo blockchain wallets. Here are some example commands you can use:
+
+### Basic Analysis
+```
+/analyze Mining Wallet - What is my current balance?
+/analyze Grid Trading Bot - Show me today's transactions
+/analyze Rosen Heavy - What's my total token value?
+```
+
+### Flow Analysis
+```
+/analyze Mining Wallet - What were my biggest inflows this month?
+/analyze Trading Wallet - Show me my net flow for the past week
+/analyze Grid Trading Bot - Calculate my total inflows vs outflows
+```
+
+### Token Analysis
+```
+/analyze Mining Wallet - List my top 5 tokens by value
+/analyze Trading Bot - What tokens have I received in the last 24 hours?
+/analyze Liquidity Pool - Show me my LP token positions
+```
+
+### Historical Analysis
+```
+/analyze Mining Wallet - Compare this month's earnings to last month
+/analyze Grid Trading Bot - Show me my trading history for the past week
+/analyze Trading Bot - Calculate my average daily volume
+```
+
+### Portfolio Analysis
+```
+/analyze Mining Wallet - What's my total portfolio value?
+/analyze Grid Trading Bot - Show me my profit/loss analysis
+/analyze All Wallets - What's my overall ERG position?
+```
+
+### Custom Time Periods
+```
+/analyze Mining Wallet - Show transactions from last Thursday
+/analyze Trading Bot - Calculate earnings for January
+/analyze Grid Trading Bot - What was my best trading day this month?
+```
+
+### Advanced Analytics
+```
+/analyze Mining Wallet - Calculate my mining efficiency trends
+/analyze Trading Bot - Show my success rate on trades
+/analyze Grid Trading Bot - Analyze my trading patterns
+```
+
+### Trend Analysis
+```
+/analyze Mining Wallet - How has my mining revenue changed over time?
+/analyze Trading Bot - Show me my weekly performance trends
+/analyze Grid Trading Bot - Identify my peak trading hours
+```
+
+## Query Tips
+
+1. Always start with `/analyze` followed by the wallet nickname
+2. Use a hyphen (-) to separate the wallet name from your query
+3. Be specific about time periods when relevant
+4. You can ask follow-up questions about specific transactions
+5. The bot understands natural language, so ask questions conversationally
+
+## Wallet Nicknames
+
+Configure wallet nicknames in your config.yaml file:
+```yaml
+addresses:
+  - address: "9ehJ..."
+    nickname: "Mining Wallet"
+  - address: "9f3A..."
+    nickname: "Trading Bot"
+  - address: "9hxE..."
+    nickname: "Grid Trading Bot"
+```
+
+## Response Format
+
+The bot provides responses formatted for Telegram with:
+- ERG amounts shown to 8 decimal places
+- USD values shown to 2 decimal places
+- Token amounts with appropriate decimal places
+- Markdown formatting for readability
+- Links to the explorer for transactions
+
 ## ⚠️ Disclaimer
 
 This bot is for monitoring purposes only. Always verify transactions in your wallet or Explorer. Never share private keys or sensitive information.
