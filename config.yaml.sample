@@ -96,7 +96,7 @@ addresses:
 # Node
 #-----------------------------------------------
 node:
-  url: "http://0.0.0.0:9053"  # Update with your node URL
+  url: "http://host.docker.internal:9053"  # Update with your node URL - leave if you are running this locally
   api_key: "your_api_key"     # Optional, if your node requires authentication
   max_retries: 3
   retry_delay: 1.0
