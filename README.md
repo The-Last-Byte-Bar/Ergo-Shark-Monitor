@@ -180,98 +180,100 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Telegram for their Bot API
 - The Ergo community
 
-# Nurse Shark Bot - Ergo Blockchain Analytics
+# 🔍 Example Queries
 
-## Example Queries
+The bot supports analytical queries about Ergo blockchain activity. Here are some examples organized by type:
 
-The bot supports a variety of analytical queries about Ergo blockchain wallets. Here are some example commands you can use:
-
-### Basic Analysis
+### 📊 Basic Balance & Flow Analysis
 ```
-/analyze Mining Wallet - What is my current balance?
-/analyze Grid Trading Bot - Show me today's transactions
-/analyze Rosen Heavy - What's my total token value?
+/analyze Main Wallet - What is my current ERG balance?
+/analyze Hot Wallet - Show me today's incoming and outgoing transactions
+/analyze Cold Storage - How many transactions did I receive this week?
 ```
 
-### Flow Analysis
+### 💫 Transaction Analysis
 ```
-/analyze Mining Wallet - What were my biggest inflows this month?
-/analyze Trading Wallet - Show me my net flow for the past week
-/analyze Grid Trading Bot - Calculate my total inflows vs outflows
-```
-
-### Token Analysis
-```
-/analyze Mining Wallet - List my top 5 tokens by value
-/analyze Trading Bot - What tokens have I received in the last 24 hours?
-/analyze Liquidity Pool - Show me my LP token positions
+/analyze Main Wallet - List my most recent transactions
+/analyze Hot Wallet - Show me all transactions from yesterday
+/analyze Cold Storage - What was my largest incoming transaction this month?
 ```
 
-### Historical Analysis
+### 🔄 Flow Patterns
 ```
-/analyze Mining Wallet - Compare this month's earnings to last month
-/analyze Grid Trading Bot - Show me my trading history for the past week
-/analyze Trading Bot - Calculate my average daily volume
-```
-
-### Portfolio Analysis
-```
-/analyze Mining Wallet - What's my total portfolio value?
-/analyze Grid Trading Bot - Show me my profit/loss analysis
-/analyze All Wallets - What's my overall ERG position?
+/analyze Main Wallet - What's my total inflow vs outflow for the month?
+/analyze Hot Wallet - Show my daily transaction patterns
+/analyze Cold Storage - Calculate my net flow for the past week
 ```
 
-### Custom Time Periods
+### 🪙 Token Holdings
 ```
-/analyze Mining Wallet - Show transactions from last Thursday
-/analyze Trading Bot - Calculate earnings for January
-/analyze Grid Trading Bot - What was my best trading day this month?
-```
-
-### Advanced Analytics
-```
-/analyze Mining Wallet - Calculate my mining efficiency trends
-/analyze Trading Bot - Show my success rate on trades
-/analyze Grid Trading Bot - Analyze my trading patterns
+/analyze Main Wallet - List all tokens in my wallet
+/analyze Hot Wallet - How many different tokens do I hold?
+/analyze Cold Storage - Show my token transaction history
 ```
 
-### Trend Analysis
+### 📅 Historical Activity
 ```
-/analyze Mining Wallet - How has my mining revenue changed over time?
-/analyze Trading Bot - Show me my weekly performance trends
-/analyze Grid Trading Bot - Identify my peak trading hours
+/analyze Main Wallet - Compare my transaction volume between this week and last week
+/analyze Hot Wallet - How many transactions did I have in January?
+/analyze Cold Storage - Show me my largest outgoing transaction from last month
 ```
 
-## Query Tips
+### 📈 Activity Analysis
+```
+/analyze Main Wallet - What days of the week am I most active?
+/analyze Hot Wallet - What's my average transaction size?
+/analyze Cold Storage - How frequently do I receive transactions?
+```
 
-1. Always start with `/analyze` followed by the wallet nickname
+## 💡 Query Tips
+
+1. Start with `/analyze` followed by your wallet nickname
 2. Use a hyphen (-) to separate the wallet name from your query
 3. Be specific about time periods when relevant
-4. You can ask follow-up questions about specific transactions
-5. The bot understands natural language, so ask questions conversationally
+4. The bot understands natural language - ask questions conversationally
+5. Focus on transaction patterns and ERG flow analysis
+6. For token queries, focus on quantities rather than values
 
-## Wallet Nicknames
+## 🏷️ Example Wallet Configuration
 
-Configure wallet nicknames in your config.yaml file:
+Configure wallet nicknames in your config.yaml:
 ```yaml
 addresses:
   - address: "9ehJ..."
-    nickname: "Mining Wallet"
+    nickname: "Main Wallet"
   - address: "9f3A..."
-    nickname: "Trading Bot"
+    nickname: "Hot Wallet"
   - address: "9hxE..."
-    nickname: "Grid Trading Bot"
+    nickname: "Cold Storage"
 ```
 
-## Response Format
+## 📝 Response Format Example
 
-The bot provides responses formatted for Telegram with:
-- ERG amounts shown to 8 decimal places
-- USD values shown to 2 decimal places
-- Token amounts with appropriate decimal places
-- Markdown formatting for readability
-- Links to the explorer for transactions
+```
+Wallet Analysis for Main Wallet:
+Current Balance: `123.45678900` ERG
 
-## ⚠️ Disclaimer
+Recent Activity:
+- Inflow: `45.67890000` ERG
+- Outflow: `12.34567800` ERG
+- Net Flow: `33.33322200` ERG
 
-This bot is for monitoring purposes only. Always verify transactions in your wallet or Explorer. Never share private keys or sensitive information.
+Transaction Count:
+- Incoming: 5
+- Outgoing: 2
+- Total: 7
+
+Token Holdings:
+- Token A: `1,000`
+- Token B: `500`
+[View on Explorer](https://explorer.ergoplatform.com/address/...)
+```
+
+## 🎯 Best Practices
+
+1. Start with simple queries about balances and recent transactions
+2. Use specific date ranges for historical analysis
+3. Break down complex questions into simpler parts
+4. Use the explorer links in responses to verify information
+5. Focus on transaction patterns and flows rather than value calculations
