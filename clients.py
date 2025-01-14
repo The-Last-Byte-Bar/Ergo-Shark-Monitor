@@ -15,12 +15,10 @@ class BaseClient(ABC):
         self.logger = logging.getLogger(self.__class__.__name__)
 
     async def init_session(self):
-        """Initialize aiohttp session"""
         if self.session is None:
             self.session = aiohttp.ClientSession()
 
     async def close_session(self):
-        """Close aiohttp session"""
         if self.session:
             await self.session.close()
             self.session = None
@@ -39,16 +37,12 @@ class ExplorerClient(BaseClient):
         self.min_request_interval = 1.0  # Minimum seconds between requests
     
     async def get_data(self, *args, **kwargs):
-        """Generic data retrieval method"""
         if 'address' in kwargs:
             return await self.get_address_transactions(kwargs['address'])
         return []
         
     async def _make_request(self, url: str, params: Dict = None) -> Dict:
         """Make a request with retry logic and rate limiting"""
-        if not self.session:
-            await self.init_session()
-
         for attempt in range(self.max_retries):
             try:
                 # Implement rate limiting
@@ -65,16 +59,13 @@ class ExplorerClient(BaseClient):
                         return await response.json()
                     elif response.status == 429:  # Too Many Requests
                         retry_after = float(response.headers.get('Retry-After', self.retry_delay))
-                        self.logger.warning(f"Rate limited, waiting {retry_after} seconds")
                         await asyncio.sleep(retry_after)
                         continue
                     elif response.status >= 500:  # Server error
-                        self.logger.warning(f"Server error {response.status}, attempt {attempt + 1}/{self.max_retries}")
                         await asyncio.sleep(self.retry_delay)
                         continue
                     else:
-                        error_text = await response.text()
-                        self.logger.error(f"Request failed with status {response.status}: {url}\nError: {error_text}")
+                        self.logger.error(f"Request failed with status {response.status}: {url}")
                         return {}
 
             except aiohttp.ClientConnectorError as e:
@@ -83,7 +74,6 @@ class ExplorerClient(BaseClient):
                     await asyncio.sleep(self.retry_delay * (attempt + 1))  # Exponential backoff
                     continue
                 else:
-                    self.logger.error(f"Connection error: {str(e)}")
                     raise
             except Exception as e:
                 self.logger.error(f"Request failed: {str(e)}")
@@ -94,7 +84,7 @@ class ExplorerClient(BaseClient):
         return {}  # Return empty dict if all retries failed
 
     async def get_address_transactions(self, address: str, offset: int = 0) -> List[Dict]:
-        """Get all transactions (mempool and confirmed) for an address"""
+        await self.init_session()
         try:
             self.logger.info(f"Fetching transactions for address: {address}")
             transactions = []
@@ -105,7 +95,6 @@ class ExplorerClient(BaseClient):
             mempool_data = await self._make_request(mempool_url)
             
             if mempool_data:
-                # Handle both list and dict response formats
                 mempool_items = []
                 if isinstance(mempool_data, dict) and 'items' in mempool_data:
                     mempool_items = mempool_data['items']
@@ -114,7 +103,6 @@ class ExplorerClient(BaseClient):
                 
                 self.logger.info(f"Found {len(mempool_items)} mempool transactions")
                 
-                # Process mempool transactions
                 for tx in mempool_items:
                     if isinstance(tx, dict):
                         formatted_tx = self._format_mempool_transaction(tx)
@@ -124,7 +112,7 @@ class ExplorerClient(BaseClient):
             transactions_url = f"{self.explorer_url}/addresses/{address}/transactions"
             params = {
                 'offset': offset,
-                'limit': 50,  # Reasonable limit per request
+                'limit': 50,
                 'sortDirection': 'desc'
             }
             
@@ -145,42 +133,20 @@ class ExplorerClient(BaseClient):
 
     def _format_mempool_transaction(self, tx: Dict) -> Dict:
         """Format mempool transaction to match confirmed transaction structure"""
-        try:
-            formatted_tx = {
-                'id': tx.get('id'),
-                'inputs': tx.get('inputs', []),
-                'outputs': tx.get('outputs', []),
-                'size': tx.get('size', 0),
-                'mempool': True,
-                'inclusionHeight': None,
-                'height': None,
-                'timestamp': int(datetime.now().timestamp() * 1000)
-            }
-            
-            # Ensure we have proper input/output structures
-            for i, input_box in enumerate(formatted_tx['inputs']):
-                if isinstance(input_box, str):
-                    formatted_tx['inputs'][i] = {'boxId': input_box}
-            
-            return formatted_tx
-        except Exception as e:
-            self.logger.error(f"Error formatting mempool transaction: {str(e)}")
-            return tx  # Return original tx if formatting fails
-
-    async def get_unspent_boxes(self, address: str) -> List[Dict]:
-        """Get unspent boxes for an address"""
-        try:
-            url = f"{self.explorer_url}/boxes/unspent/byAddress/{address}"
-            self.logger.debug(f"Fetching unspent boxes from: {url}")
-            
-            response = await self._make_request(url)
-            
-            if isinstance(response, dict) and 'items' in response:
-                return response['items']
-            elif isinstance(response, list):
-                return response
-            return []
-            
-        except Exception as e:
-            self.logger.error(f"Error getting unspent boxes for {address}: {str(e)}")
-            return []
+        formatted_tx = {
+            'id': tx.get('id'),
+            'inputs': tx.get('inputs', []),
+            'outputs': tx.get('outputs', []),
+            'size': tx.get('size', 0),
+            'mempool': True,
+            'inclusionHeight': None,
+            'height': None,
+            'timestamp': int(datetime.now().timestamp() * 1000)
+        }
+        
+        # Ensure we have proper input/output structures
+        for i, input_box in enumerate(formatted_tx['inputs']):
+            if isinstance(input_box, str):
+                formatted_tx['inputs'][i] = {'boxId': input_box}
+                
+        return formatted_tx
